@@ -3,7 +3,6 @@ import numpy as np
 import pybullet_data
 import time
 
-
 '''
 Ressources used for this project: 
     - https://github.com/utiasDSL/gym-pybullet-drones
@@ -16,13 +15,13 @@ class DroneBltEnv:
         self.time_step = time_step
         self.max_speed_kmh = max_speed_kmh
 
-        
+        # Store drone properties
         self.drone_properties = {
             "max_speed_kmh": max_speed_kmh,
             "mass": self.get_drone_mass(),
         }
 
-       
+        # Initialize the drone's kinematic information
         self.drones_kinematic_info = {
             "pos": np.array(start_pos),
             "vel": np.zeros(3),
@@ -50,8 +49,8 @@ class DroneBltEnv:
         p.resetBasePositionAndOrientation(self.drone_id, target_pos, target_orientation)
 
     def close(self):
-        p.removeBody(self.drone_id) 
-        p.disconnect()  
+        p.removeBody(self.drone_id)
+        p.disconnect()
 
 def get_key_pressed():
     pressed_keys = []
@@ -75,12 +74,10 @@ if __name__ == "__main__":
     # Load assets:
     p.loadURDF("plane.urdf", [0, 0, 0], [0, 0, 0, 1])  # Load the plane URDF to act as the ground
 
-    
     move_speed = 0.05
-    rotation_speed = 0.1 
+    rotation_speed = 0.1
 
     while p.isConnected():
-
         p.stepSimulation()
 
         # Get the current drone state
@@ -88,13 +85,16 @@ if __name__ == "__main__":
         current_pos = current_state['pos']
         current_quat = current_state['quat']
 
-        # Get pressed keys
         key_codes = get_key_pressed()
 
         # Calculate the drone's local frame movement
-        forward_vector = np.array([0, move_speed, 0])
+        forward_vector = np.array([0, move_speed, 0]) # Deal Forward/Backward movement with rot
+        right_vector = np.array([move_speed, 0, 0])   # Deal Left/Right  movement with rot
+
         local_rotation_matrix = np.array(p.getMatrixFromQuaternion(current_quat)).reshape(3, 3)
-        direction = np.dot(local_rotation_matrix, forward_vector)
+        
+        forward_direction = np.dot(local_rotation_matrix, forward_vector)
+        right_direction = np.dot(local_rotation_matrix, right_vector)
 
         # Update position based on key press
         for key in key_codes:
@@ -103,21 +103,20 @@ if __name__ == "__main__":
             if ord('d') in key_codes:
                 current_pos[2] -= move_speed  # Down
             if p.B3G_UP_ARROW in key_codes:
-                current_pos += direction  # Move forward in local frame
+                current_pos += forward_direction  # Move forward 
             if p.B3G_DOWN_ARROW in key_codes:
-                current_pos -= direction  # Move backward in local frame
+                current_pos -= forward_direction  # Move backward 
             if p.B3G_LEFT_ARROW in key_codes:
-                current_pos[0] -= move_speed  
+                current_pos -= right_direction  # Move left 
             if p.B3G_RIGHT_ARROW in key_codes:
-                current_pos[0] += move_speed  
-
+                current_pos += right_direction  # Move right 
             # Apply rotation
             if ord('q') in key_codes:
-                # Counterclockwise rotation (yaw increase)
+                # Counterclockwise rotation
                 rotation_quat = p.getQuaternionFromEuler([0, 0, rotation_speed])
                 current_quat = p.multiplyTransforms([0, 0, 0], current_quat, [0, 0, 0], rotation_quat)[1]
             if ord('e') in key_codes:
-                # Clockwise rotation (yaw decrease)
+                # Clockwise rotation
                 rotation_quat = p.getQuaternionFromEuler([0, 0, -rotation_speed])
                 current_quat = p.multiplyTransforms([0, 0, 0], current_quat, [0, 0, 0], rotation_quat)[1]
 
@@ -127,4 +126,5 @@ if __name__ == "__main__":
         time.sleep(0.01)
 
     sim_env.close()
+
 
